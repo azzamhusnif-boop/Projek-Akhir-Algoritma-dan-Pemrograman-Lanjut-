@@ -1,0 +1,487 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+using namespace std;
+
+struct AtributBuku{
+    int tahun_terbit;
+    int jumlah_halaman;
+    int rating; // 1-10
+};
+
+struct Buku{
+    int id;
+    string judul;
+    string penulis;
+    AtributBuku detail;
+};
+
+// Variabel Global
+Buku arrayBuku[100];
+int jumlah_buku = 0;
+
+// ========================
+// UTILITY
+// ========================
+
+void clearScreen(){
+#ifdef _WIN32
+    system("cls");
+#else
+    system("clear");
+#endif
+}
+
+void pauseScreen(){
+    cout << "\nTekan Enter untuk melanjutkan...";
+    cin.ignore();
+    cin.get();
+}
+
+bool idSudahAda(int id){
+    for(int i = 0; i < jumlah_buku; i++){
+        if (arrayBuku[i].id == id) return true;
+    }
+    return false;
+}
+
+void cetakGaris(char karakter = '-', int panjang = 45){
+    for (int i = 0; i < panjang; i++) cout << karakter;
+    cout << "\n";
+}
+
+// ========================
+// DEKLARASI FUNGSI
+// ========================
+
+void initData();
+void saveAppendData(Buku buku);
+void saveOverwriteData();
+
+int Hitung_Popularitas(int rating);
+int binarySearch(Buku arr[], int kiri, int kanan, int id_cari);
+
+void swapData(Buku *a, Buku *b);
+int partition(Buku arr[], int low, int high);
+void quickSort(Buku arr[], int low, int high);
+
+void tambahData();
+void lihatData();
+void hapusData();
+void cetakLaporan();
+
+// ========================
+// MAIN
+// ========================
+
+int main(){
+    initData();
+
+    int pilihan;
+    do{
+        clearScreen();
+        cetakGaris('=');
+        cout << "        E-LIBRARY TRACKER\n";
+        cetakGaris('=');
+        cout << " [1] Tambah Data Buku\n";
+        cout << " [2] Lihat Koleksi Buku\n";
+        cout << " [3] Hapus Data Buku\n";
+        cout << " [4] Cetak Laporan Buku Langka (Rating Rendah)\n";
+        cout << " [0] Keluar\n";
+        cetakGaris();
+        cout << " Pilih menu: ";
+        cin >> pilihan;
+        cin.ignore();
+
+        switch(pilihan){
+            case 1 :  
+                tambahData();
+                break;
+            case 2 :
+                lihatData();
+                break;
+            case 3 : 
+                hapusData();     
+                break;
+            case 4 : 
+                cetakLaporan();  
+                break;
+            case 0 : 
+                clearScreen();
+                cout << "Terima kasih telah menggunakan E-Library Tracker!\n\n";
+                break;
+            default :
+                cout << "\nPilihan tidak valid!\n";
+                pauseScreen();
+        }
+    }while(pilihan != 0);
+
+    return 0;
+}
+
+// ========================
+// IMPLEMENTASI FUNGSI
+// ========================
+
+void initData(){
+    // Baca seluruh data dari data_buku.txt dan masukkan ke arrayBuku
+    ifstream file("data_buku.txt");
+    if(!file.is_open()) 
+        return; // File belum ada, mulai kosong
+
+    jumlah_buku = 0;
+    while(jumlah_buku < 100 && file >> arrayBuku[jumlah_buku].id){
+        file.ignore(); // abaikan newline setelah id
+        getline(file, arrayBuku[jumlah_buku].judul);
+        getline(file, arrayBuku[jumlah_buku].penulis);
+        file >> arrayBuku[jumlah_buku].detail.tahun_terbit
+             >> arrayBuku[jumlah_buku].detail.jumlah_halaman
+             >> arrayBuku[jumlah_buku].detail.rating;
+        file.ignore();
+        jumlah_buku++;
+    }
+
+    file.close();
+}
+
+void saveAppendData(Buku buku){
+    // Tambahkan 1 data buku ke akhir data_buku.txt
+    ofstream file("data_buku.txt", ios::app);
+    if(!file.is_open()){
+        cout << "Gagal membuka file untuk penyimpanan.\n";
+        return;
+    }
+
+    file << buku.id << "\n"
+         << buku.judul << "\n"
+         << buku.penulis << "\n"
+         << buku.detail.tahun_terbit << "\n"
+         << buku.detail.jumlah_halaman << "\n"
+         << buku.detail.rating << "\n";
+
+    file.close();
+}
+
+void saveOverwriteData(){
+    // Tulis ulang seluruh isi data_buku.txt berdasarkan arrayBuku saat ini
+    ofstream file("data_buku.txt", ios::trunc);
+    if(!file.is_open()){
+        cout << "Gagal membuka file untuk penimpaan.\n";
+        return;
+    }
+
+    for(int i = 0; i < jumlah_buku; i++){
+        file << arrayBuku[i].id << "\n"
+             << arrayBuku[i].judul << "\n"
+             << arrayBuku[i].penulis << "\n"
+             << arrayBuku[i].detail.tahun_terbit << "\n"
+             << arrayBuku[i].detail.jumlah_halaman << "\n"
+             << arrayBuku[i].detail.rating << "\n";
+    }
+
+    file.close();
+}
+
+int Hitung_Popularitas(int rating){
+    // Rekursif: skor popularitas = akumulasi dari 1 s.d. rating
+    // Contoh: rating 4 -> 1+2+3+4 = 10
+    if(rating <= 0)
+        return 0;
+        return rating + Hitung_Popularitas(rating - 1);
+}
+
+int binarySearch(Buku arr[], int kiri, int kanan, int id_cari){
+    // Cari indeks buku berdasarkan ID (array harus sudah terurut by ID)
+    if(kiri > kanan) 
+        return -1;
+
+    int tengah = kiri + (kanan - kiri) / 2;
+
+    if(arr[tengah].id == id_cari)  
+        return tengah;
+    if(arr[tengah].id < id_cari)  
+        return binarySearch(arr, tengah + 1, kanan, id_cari);
+        return binarySearch(arr, kiri, tengah - 1, id_cari);
+}
+
+void swapData(Buku *a, Buku *b){
+    // Tukar dua data Buku menggunakan pointer
+    Buku temp = *a;
+    *a = *b;
+    *b = temp;
+}
+
+int partition(Buku arr[], int low, int high){
+    // Partisi Quick Sort menggunakan pivot elemen paling kanan
+    int pivot = arr[high].id;
+    int i = low - 1;
+
+    for(int j = low; j < high; j++){
+        if(arr[j].id <= pivot){
+            i++;
+            swapData(&arr[i], &arr[j]);
+        }
+    }
+
+    swapData(&arr[i + 1], &arr[high]);
+    return i + 1;
+}
+
+void quickSort(Buku arr[], int low, int high){
+    // Urutkan arrayBuku berdasarkan ID secara ascending
+    if(low < high){
+        int pi = partition(arr, low, high);
+        quickSort(arr, low, pi - 1);
+        quickSort(arr, pi + 1, high);
+    }
+}
+
+void tambahData(){
+    clearScreen();
+    cetakGaris('=');
+    cout << "       TAMBAH DATA BUKU\n";
+    cetakGaris('=');
+
+    if(jumlah_buku >= 100){
+        cout << "Kapasitas penuh! Tidak dapat menambah buku.\n";
+        pauseScreen();
+        return;
+    }
+
+    Buku baru;
+
+    // Input ID dengan validasi duplikat
+    do{
+        cout << " ID Buku       : ";
+        cin >> baru.id;
+        cin.ignore();
+        if(idSudahAda(baru.id))
+            cout << " [!] ID sudah digunakan, coba ID lain.\n";
+    }while(idSudahAda(baru.id));
+
+    cout << " Judul         : ";
+    getline(cin, baru.judul);
+
+    // Validasi judul tidak kosong
+    while(baru.judul.empty()){
+        cout << "Judul tidak boleh kosong.\n Judul : ";
+        getline(cin, baru.judul);
+    }
+
+    cout << " Penulis       : ";
+    getline(cin, baru.penulis);
+
+    while(baru.penulis.empty()){
+        cout << "Penulis tidak boleh kosong.\n Penulis : ";
+        getline(cin, baru.penulis);
+    }
+
+    cout << " Tahun Terbit  : ";
+    cin >> baru.detail.tahun_terbit;
+
+    cout << " Jumlah Halaman: ";
+    cin >> baru.detail.jumlah_halaman;
+
+    // Validasi rating 1-10
+    do{
+        cout << " Rating (1-10) : ";
+        cin >> baru.detail.rating;
+        if(baru.detail.rating < 1 || baru.detail.rating > 10)
+            cout << " [!] Rating harus antara 1 dan 10.\n";
+    }while(baru.detail.rating < 1 || baru.detail.rating > 10);
+    cin.ignore();
+
+    // Simpan ke array dan ke file
+    arrayBuku[jumlah_buku] = baru;
+    jumlah_buku++;
+    saveAppendData(baru);
+
+    cout << "\n Buku berhasil ditambahkan!\n";
+    pauseScreen();
+}
+
+void lihatData(){
+    clearScreen();
+    cetakGaris('=');
+    cout << "       KOLEKSI BUKU\n";
+    cetakGaris('=');
+
+    if(jumlah_buku == 0){
+        cout << " Belum ada data buku.\n";
+        pauseScreen();
+        return;
+    }
+
+    // Urutkan berdasarkan ID sebelum ditampilkan
+    quickSort(arrayBuku, 0, jumlah_buku - 1);
+
+    // Header tabel
+    cout << " No | ID  | Judul                    | Rating | Popularitas\n";
+    cetakGaris('-', 60);
+
+    for(int i = 0; i < jumlah_buku; i++){
+        int skor = Hitung_Popularitas(arrayBuku[i].detail.rating);
+        cout << " " << i + 1
+             << "  | " << arrayBuku[i].id
+             << "  | " << arrayBuku[i].judul.substr(0, 24)
+             << (arrayBuku[i].judul.length() > 24 ? ".." : "  ")
+             << " | " << arrayBuku[i].detail.rating << "/10"
+             << "  | " << skor << "\n";
+    }
+
+    cetakGaris('-', 60);
+    cout << " Total buku: " << jumlah_buku << "\n";
+
+    // Detail buku pilihan
+    cout << "\n Lihat detail buku? Masukkan No (0 = tidak): ";
+    int no;
+    cin >> no;
+    cin.ignore();
+
+    if(no >= 1 && no <= jumlah_buku){
+        Buku &b = arrayBuku[no - 1];
+        clearScreen();
+        cetakGaris('=');
+        cout << "  DETAIL BUKU\n";
+        cetakGaris('=');
+        cout << " ID             : " << b.id << "\n";
+        cout << " Judul          : " << b.judul << "\n";
+        cout << " Penulis        : " << b.penulis << "\n";
+        cout << " Tahun Terbit   : " << b.detail.tahun_terbit << "\n";
+        cout << " Jumlah Halaman : " << b.detail.jumlah_halaman << "\n";
+        cout << " Rating         : " << b.detail.rating << "/10\n";
+        cout << " Skor Popularitas : " << Hitung_Popularitas(b.detail.rating) << "\n";
+        cetakGaris();
+    }
+    pauseScreen();
+}
+
+void hapusData(){
+    clearScreen();
+    cetakGaris('=');
+    cout << "       HAPUS DATA BUKU\n";
+    cetakGaris('=');
+
+    if(jumlah_buku == 0){
+        cout << " Belum ada data buku.\n";
+        pauseScreen();
+        return;
+    }
+
+    cout << " Masukkan ID buku yang ingin dihapus : ";
+    int id_hapus;
+    cin >> id_hapus;
+    cin.ignore();
+
+    // Array harus terurut sebelum binary search
+    quickSort(arrayBuku, 0, jumlah_buku - 1);
+    int indeks = binarySearch(arrayBuku, 0, jumlah_buku - 1, id_hapus);
+    if(indeks == -1){
+        cout << "\n [!] Buku dengan ID " << id_hapus << " tidak ditemukan.\n";
+        pauseScreen();
+        return;
+    }
+
+    cout << "\n Buku ditemukan:\n";
+    cout << " Judul  : " << arrayBuku[indeks].judul << "\n";
+    cout << " Penulis: " << arrayBuku[indeks].penulis << "\n";
+    cout << " Hapus buku ini? (y/n): ";
+    char konfirmasi;
+    cin >> konfirmasi;
+    cin.ignore();
+
+    if(konfirmasi != 'y' && konfirmasi != 'Y'){
+        cout << " Penghapusan dibatalkan.\n";
+        pauseScreen();
+        return;
+    }
+
+    // Geser elemen ke kiri (shift left) untuk menutupi slot yang dihapus
+    for(int i = indeks; i < jumlah_buku - 1; i++){
+        arrayBuku[i] = arrayBuku[i + 1];
+    }
+    jumlah_buku--;
+
+    // Tulis ulang file dengan data terbaru
+    saveOverwriteData();
+
+    cout << "\n Buku berhasil dihapus!\n";
+    pauseScreen();
+}
+
+void cetakLaporan(){
+    clearScreen();
+    cetakGaris('=');
+    cout << "  CETAK LAPORAN BUKU LANGKA\n";
+    cetakGaris('=');
+
+    if(jumlah_buku == 0){
+        cout << " Belum ada data buku.\n";
+        pauseScreen();
+        return;
+    }
+
+    // Buku "langka" = rating rendah (di bawah ambang batas)
+    int batas_rating;
+    cout << " Masukkan batas maksimum rating (1-10) : ";
+    cin >> batas_rating;
+    cin.ignore();
+
+    if(batas_rating < 1 || batas_rating > 10){
+        cout << "Rating tidak valid.\n";
+        pauseScreen();
+        return;
+    }
+
+    ofstream file("laporan.txt");
+    if(!file.is_open()){
+        cout << "Gagal membuat file laporan.\n";
+        pauseScreen();
+        return;
+    }
+
+    file << "========================================\n";
+    file << "  LAPORAN BUKU LANGKA (Rating <= " << batas_rating << ")\n";
+    file << "========================================\n\n";
+
+    int count = 0;
+    quickSort(arrayBuku, 0, jumlah_buku - 1);
+
+    for(int i = 0; i < jumlah_buku; i++){
+        if(arrayBuku[i].detail.rating <= batas_rating){
+            int skor = Hitung_Popularitas(arrayBuku[i].detail.rating);
+            file << "ID             : " << arrayBuku[i].id << "\n";
+            file << "Judul          : " << arrayBuku[i].judul << "\n";
+            file << "Penulis        : " << arrayBuku[i].penulis << "\n";
+            file << "Tahun Terbit   : " << arrayBuku[i].detail.tahun_terbit << "\n";
+            file << "Jumlah Halaman : " << arrayBuku[i].detail.jumlah_halaman << "\n";
+            file << "Rating         : " << arrayBuku[i].detail.rating << "/10\n";
+            file << "Skor Popularitas : " << skor << "\n";
+            file << "----------------------------------------\n";
+            count++;
+        }
+    }
+
+    if(count == 0){
+        file << "Tidak ada buku dengan rating <= " << batas_rating << ".\n";
+    }else{
+        file << "\nTotal buku langka: " << count << "\n";
+    }
+    file.close();
+
+    // Tampilkan preview di layar juga
+    if(count > 0){
+        cout << "\n Ditemukan " << count << " buku langka (rating <= " << batas_rating << "):\n\n";
+        for(int i = 0; i < jumlah_buku; i++){
+            if(arrayBuku[i].detail.rating <= batas_rating){
+                cout << " - [" << arrayBuku[i].id << "] "
+                     << arrayBuku[i].judul
+                     << " (Rating: " << arrayBuku[i].detail.rating << ")\n";
+            }
+        }
+    }else{
+        cout << "\nTidak ada buku dengan rating <= " << batas_rating << ".\n";
+    }
+    cout << "\nLaporan disimpan ke laporan.txt\n";
+    pauseScreen();
+}
